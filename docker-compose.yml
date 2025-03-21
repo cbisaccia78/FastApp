@@ -1,0 +1,83 @@
+services:
+  zookeeper:
+    image: bitnami/zookeeper:latest
+    container_name: zookeeper
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    ports:
+      - "2181:2181"
+  
+  kafka:
+    image: bitnami/kafka:latest
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_LISTENERS=PLAINTEXT://:9092
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+    ports:
+      - "9092:9092"
+
+  user:
+    build: ./services/users
+    container_name: user
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - kafka
+    ports:
+      - "5000:5000"
+  notification:
+    build: ./services/notifications
+    container_name: notification
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - kafka
+    ports:
+      - "5001:5001"
+
+  dev-logger:
+    build: ./services/dev_logger
+    container_name: dev_logger
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - kafka
+    ports:
+      - "5002:5002"
+
+  storage:
+    build: ./services/storage
+    container_name: storage
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - kafka
+    ports:
+      - "5003:5003"
+  
+  ai-server:
+    build: ./services/ai
+    container_name: ai_server
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - HF_HOME=/tmp/hf_cache
+      - TRANSFORMERS_CACHE=/tmp/hf_cache
+    depends_on:
+      - kafka
+    ports:
+      - "5004:5004"
+
+  tf-serving:
+    image: tensorflow/serving:latest-gpu
+    container_name: tf_serving
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./models:/models
+    environment:
+      - MODEL_NAME=codebert_regression_model
