@@ -1,0 +1,4 @@
+confluent-kafka
+SQLAlchemy
+psycopg2-binary
+python-dateutil

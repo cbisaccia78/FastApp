@@ -1,4 +1,68 @@
 services:
+  services:
+  kong-database:
+    image: postgres:latest
+    container_name: kong-database
+    environment:
+      POSTGRES_USER: kong
+      POSTGRES_DB: kong
+      POSTGRES_PASSWORD: kong
+    ports:
+      - "5432:5432"
+    volumes:
+      - kong-data:/var/lib/postgresql/data
+
+  kong-migrations:
+    image: kong:3.6
+    depends_on:
+      - kong-database
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong
+      KONG_PASSWORD: kongadmin
+    command: kong migrations bootstrap
+
+  kong:
+    image: kong:3.6
+    depends_on:
+      - kong-migrations
+    ports:
+      - "8000:8000"     # Proxy (HTTP)
+      - "8443:8443"     # Proxy (HTTPS)
+      - "8001:8001"     # Admin API (HTTP)
+      - "8444:8444"     # Admin API (HTTPS)
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001, 0.0.0.0:8444 ssl"
+
+  # Optional: Kong Admin UI (Konga)
+  konga:
+    image: pantsel/konga:latest
+    container_name: konga
+    depends_on:
+      - kong
+    ports:
+      - "1337:1337"
+    environment:
+      DB_ADAPTER: postgres
+      DB_HOST: kong-database
+      DB_PORT: 5432
+      DB_USER: kong
+      DB_PASSWORD: kong
+      DB_DATABASE: kong
+    restart: always
+
+  volumes:
+    kong-data:
   zookeeper:
     image: bitnami/zookeeper:latest
     container_name: zookeeper
@@ -21,6 +85,35 @@ services:
     ports:
       - "9092:9092"
 
+  telemetry-db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: telemetry
+    ports:
+      - "5432:5432"
+  telemetry-producer:
+    build: ./services/telemetry/producer
+    container_name: telemetry_producer
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - kafka
+      - telemetry-db
+    ports:
+      - "5005:5005"
+
+  telemetry-consumer:
+    build: ./services/telemetry/consumer
+    container_name: telemetry_consumer
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - kafka
+      - telemetry-db
+    ports:
+      - "5006:5006"
   user:
     build: ./services/users
     container_name: user
@@ -69,6 +162,7 @@ services:
       - TRANSFORMERS_CACHE=/tmp/hf_cache
     depends_on:
       - kafka
+      - tf-serving
     ports:
       - "5004:5004"
 

@@ -1,0 +1,25 @@
+# Core framework
+flask
+gunicorn
+
+# Data processing
+pydantic
+
+# Logging
+structlog
+loguru
+
+# Message queue / streaming (optional depending on your setup)
+confluent-kafka
+
+# Database (choose one based on where you store telemetry)
+sqlalchemy       # for relational DBs
+asyncpg            # if using PostgreSQL asynchronously
+influxdb-client    # if using InfluxDB for time-series data
+pymongo            # for MongoDB
+
+# Monitoring and metrics (optional)
+prometheus-client     # expose metrics to Prometheus
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-exporter-otlp
